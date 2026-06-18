@@ -21,6 +21,10 @@ class Settings(BaseSettings):
     # (el driver async) en vez de psycopg2 (síncrono).
     DATABASE_URL: str
 
+    # DEBUG controla el SQL echo del engine. En producción debe ser False
+    # para evitar loguear queries completas con sus parámetros.
+    DEBUG: bool = False
+
     # model_config reemplaza la clase Config interna de Pydantic v1.
     # env_file le dice a Pydantic dónde buscar el archivo de variables de entorno.
     model_config = SettingsConfigDict(env_file=".env")

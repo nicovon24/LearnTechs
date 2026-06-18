@@ -22,9 +22,12 @@ class Club(SQLModel, table=True):
     """
     Tabla de clubes de fútbol.
 
-    __tablename__ no es necesario declararlo — SQLModel usa el nombre de la clase
-    en lowercase como nombre de tabla por defecto ("club").
+    FIX: declarar __tablename__ explícitamente para que coincida con el schema
+    real de la DB (que puede ser plural o con prefijo de app en Django).
+    Sin esto, SQLModel usa "club" por default y podría no coincidir con "clubs".
     """
+
+    __tablename__ = "clubs"  # type: ignore[assignment]
 
     id: Optional[int] = Field(default=None, primary_key=True)
     name: str = Field(index=True)  # index=True crea un índice en la DB
@@ -41,6 +44,8 @@ class Player(SQLModel, table=True):
     """
     Tabla de jugadores.
     """
+
+    __tablename__ = "players"  # type: ignore[assignment]
 
     id: Optional[int] = Field(default=None, primary_key=True)
     name: str = Field(index=True)
@@ -66,6 +71,8 @@ class Match(SQLModel, table=True):
     tabla de alineaciones, etc.), pero para este microservicio de estadísticas
     esta estructura plana es suficiente.
     """
+
+    __tablename__ = "matches"  # type: ignore[assignment]
 
     id: Optional[int] = Field(default=None, primary_key=True)
     player_id: int = Field(foreign_key="player.id", index=True)

@@ -29,3 +29,9 @@ pytest-mock==3.14.0
 
 # Driver async de SQLite — usado en tests como alternativa liviana a Postgres
 aiosqlite==0.20.0
+
+# FIX: sqlalchemy[asyncio] instala greenlet, requerido por SQLModel's session.exec()
+# async. Sin esto una instalación limpia puede fallar con:
+# "the greenlet library is required to use this function"
+sqlalchemy[asyncio]
+greenlet

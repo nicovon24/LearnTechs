@@ -18,8 +18,8 @@ Conceptos de este archivo:
   query params (?page=1&page_size=10). Sin default → son requeridos.
 """
 
-from fastapi import APIRouter, Depends
-from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import APIRouter, Depends, Query
+from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.database import get_session
 from app.schemas import PlayerStatsResponse, TopScorersResponse
@@ -32,8 +32,10 @@ router = APIRouter()
 
 @router.get("/top-scorers", response_model=TopScorersResponse)
 async def get_top_scorers(
-    page: int = 1,
-    page_size: int = 10,
+    # FIX: Query() con ge/le previene valores negativos o extremadamente grandes
+    # que generarían OFFSET/LIMIT inválidos en SQL (→ 500) o DoS trivial.
+    page: int = Query(default=1, ge=1, description="Número de página"),
+    page_size: int = Query(default=10, ge=1, le=100, description="Resultados por página"),
     session: AsyncSession = Depends(get_session),
 ):
     """

@@ -20,13 +20,18 @@ Conceptos clave de este archivo:
    el ciclo de vida de recursos.
 """
 
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from sqlalchemy.ext.asyncio import create_async_engine
+# FIX: usar AsyncSession de sqlmodel.ext.asyncio.session, NO de sqlalchemy.
+# El método session.exec() que usamos en los services solo existe en la versión
+# de SQLModel — la de SQLAlchemy puro lanza AttributeError en runtime.
+from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlalchemy.orm import sessionmaker
 from app.config import settings
 
-# El engine es el objeto de bajo nivel que maneja el pool de conexiones.
-# echo=True loguea el SQL generado — muy útil para aprender qué hace el ORM.
-engine = create_async_engine(settings.DATABASE_URL, echo=True)
+# echo=True loguea el SQL generado — muy útil para dev, pero agrega I/O overhead
+# en producción y puede filtrar datos sensibles en logs centralizados.
+# FIX: condicionarlo al flag DEBUG en vez de dejarlo siempre encendido.
+engine = create_async_engine(settings.DATABASE_URL, echo=settings.DEBUG)
 
 # AsyncSessionLocal es una "fábrica" de sesiones.
 # expire_on_commit=False: por defecto SQLAlchemy "expira" los objetos después de
