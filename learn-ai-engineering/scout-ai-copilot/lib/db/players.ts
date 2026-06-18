@@ -27,6 +27,8 @@ export async function getPlayerStats(
     .from("players")
     .select("*")
     .ilike("name", `%${playerName}%`)   // búsqueda parcial, case-insensitive
+    .order("name", { ascending: true }) // orden determinístico: evita devolver
+                                        // un jugador arbitrario si hay varios matches
     .limit(1)                           // tomamos solo el primer resultado
     .single();                          // queremos un objeto, no un array
 

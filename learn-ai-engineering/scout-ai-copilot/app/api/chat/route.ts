@@ -2,26 +2,23 @@
  * /api/chat — Etapa 2+4: AI SDK + LangGraph juntos
  *
  * POR QUÉ combinamos LangGraph con el AI SDK acá:
- *   - LangGraph maneja la ORQUESTACIÓN: qué tools llamar y en qué orden.
- *   - El AI SDK maneja el STREAMING hacia el frontend: el protocolo de
- *     streaming de texto que useChat() del frontend entiende.
+ *   - LangGraph maneja la ORQUESTACIÓN: qué tools llamar y en qué orden
+ *     (classify → fetchStats/fetchReports → synthesize).
+ *   - El frontend recibe el texto via un ReadableStream manual que escribimos
+ *     directamente, sin pasar por un segundo LLM.
  *
- *   LangGraph no tiene streaming built-in compatible con useChat(), así que
- *   usamos un patrón "adapter": ejecutamos el grafo (que puede tardar varios
- *   segundos haciendo múltiples calls a la API), y cuando termina,
- *   streameamos la respuesta final al cliente.
- *
- *   Para hacer STREAMING REAL del grafo (token por token), se necesitaría
- *   implementar un ReadableStream manualmente — lo anotamos como mejora futura.
+ * POR QUÉ NO usamos un segundo streamText para "retransmitir":
+ *   Pasar la respuesta del agente a otro LLM para que la "retransmita" es
+ *   no-determinístico: el modelo puede reordenar, omitir o reescribir el
+ *   marcador PLAYER_STATS_DATA que usa la Generative UI. El fix es escribir
+ *   el ReadableStream directamente con el texto ya construido.
  *
  * SOBRE GENERATIVE UI:
- *   Cuando el grafo devuelve stats de un jugador, incluimos esos datos en la
- *   respuesta como un objeto JSON especial. El frontend detecta ese objeto
- *   y renderiza un componente PlayerCard en vez de solo texto.
+ *   Cuando el grafo devuelve stats de un jugador, el marcador
+ *   PLAYER_STATS_DATA:{json}:END_PLAYER_STATS se escribe determinísticamente
+ *   al stream. El frontend lo parsea y renderiza PlayerCard.
  */
 
-import { streamText } from "ai";
-import { anthropic } from "@ai-sdk/anthropic";
 import { NextRequest, NextResponse } from "next/server";
 import { runScoutingAgent } from "@/lib/agent/graph";
 
@@ -54,50 +51,41 @@ export async function POST(req: NextRequest) {
     // runScoutingAgent() corre todo el flujo:
     //   classify → (fetchStats / fetchReports) → synthesize
     // y devuelve la respuesta final más el estado completo del grafo.
-    //
-    // El estado completo es valioso para la Generative UI: si el grafo
-    // obtuvo stats de un jugador, las incluimos en la respuesta para que
-    // el frontend pueda renderizar el componente PlayerCard.
     const { response, state } = await runScoutingAgent(lastUserMessage.content);
 
-    // ── 2. Preparar el contexto para el streaming ────────────────────────────
+    // ── 2. Construir el texto final con el marcador de Generative UI ─────────
     //
-    // Si el grafo obtuvo stats de un jugador, las adjuntamos a la respuesta
-    // como un bloque JSON especial. El frontend parsea esto para saber cuándo
-    // mostrar la PlayerCard.
-    //
-    // Este es el patrón de "Generative UI": en vez de que el frontend tenga
-    // que hacer un fetch separado para las stats, el backend las incluye
-    // directamente en el stream de la respuesta del chat.
-    let systemPrompt = `Sos un asistente de scouting. Transmitís la siguiente respuesta al usuario exactamente como está, sin modificarla.`;
-
-    let userPrompt = response;
+    // Si el grafo obtuvo stats de un jugador, anteponemos el marcador JSON al
+    // texto de respuesta. Esto se escribe directamente al stream — sin pasar
+    // por ningún LLM — garantizando que el marcador siempre llega intacto.
+    let finalText = response;
 
     if (state.playerStats) {
-      // Incluimos las stats como JSON en el prompt para que el modelo
-      // las pueda referenciar al transmitir. El frontend detecta este bloque.
       const statsJson = JSON.stringify(state.playerStats);
-      userPrompt = `PLAYER_STATS_DATA:${statsJson}:END_PLAYER_STATS\n\n${response}`;
-      systemPrompt +=
-        " La respuesta puede incluir un bloque PLAYER_STATS_DATA al inicio — dejalo tal cual.";
+      finalText = `PLAYER_STATS_DATA:${statsJson}:END_PLAYER_STATS\n\n${response}`;
     }
 
-    // ── 3. Streamear la respuesta al frontend con el AI SDK ──────────────────
+    // ── 3. Streamear la respuesta al frontend con un ReadableStream manual ───
     //
-    // streamText() del AI SDK genera un stream de texto token por token.
-    // Aunque nosotros ya tenemos la respuesta completa de LangGraph,
-    // usamos streamText para que el frontend la reciba progresivamente
-    // (mejor UX que esperar el response completo).
-    //
-    // toDataStreamResponse() convierte el stream al protocolo que
-    // useChat() del frontend entiende automáticamente.
-    const result = streamText({
-      model: anthropic("claude-3-5-haiku-20241022"),
-      system: systemPrompt,
-      messages: [{ role: "user", content: userPrompt }],
+    // Escribimos el texto directamente al stream en chunks pequeños para dar
+    // la sensación de streaming progresivo (mejor UX que respuesta de golpe).
+    // Al no pasar por un segundo LLM el marcador PLAYER_STATS_DATA nunca
+    // puede ser alterado.
+    const encoder = new TextEncoder();
+    const stream = new ReadableStream({
+      start(controller) {
+        // Dividimos en chunks de ~20 chars para simular streaming
+        const chunkSize = 20;
+        for (let i = 0; i < finalText.length; i += chunkSize) {
+          controller.enqueue(encoder.encode(finalText.slice(i, i + chunkSize)));
+        }
+        controller.close();
+      },
     });
 
-    return result.toTextStreamResponse();
+    return new Response(stream, {
+      headers: { "Content-Type": "text/plain; charset=utf-8" },
+    });
   } catch (error) {
     console.error("[chat] Error:", error);
     return NextResponse.json(
