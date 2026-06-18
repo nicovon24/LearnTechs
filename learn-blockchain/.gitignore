@@ -1,0 +1,20 @@
+# Foundry build output
+out/
+cache/
+
+# OpenZeppelin y otras dependencias se instalan con `forge install`
+# NO se commitean — forge install las descarga de GitHub
+lib/
+
+# Variables de entorno (claves privadas, API keys)
+.env
+.env.local
+.env.*.local
+
+# OS
+.DS_Store
+Thumbs.db
+
+# VS Code / IntelliJ
+.vscode/
+.idea/

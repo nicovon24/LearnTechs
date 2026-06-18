@@ -1,0 +1,21 @@
+[profile.default]
+src = "src"
+out = "out"
+libs = ["lib"]
+solc = "0.8.24"
+
+# Remappings: le dice al compilador dónde buscar los imports de @openzeppelin
+# Después de correr `forge install OpenZeppelin/openzeppelin-contracts`,
+# forge agrega automáticamente este remapping.
+remappings = [
+    "@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/"
+]
+
+[profile.default.fuzz]
+# Cuántas veces corre el fuzzer por cada test de fuzzing.
+# 1000 es un buen balance entre cobertura y velocidad.
+runs = 1000
+
+[profile.ci.fuzz]
+# En CI corremos más fuzzing para mayor confianza.
+runs = 5000

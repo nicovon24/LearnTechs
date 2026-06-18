@@ -8,6 +8,10 @@ La idea es simple: en vez de hacer tutoriales pasivos, uso IA para generar proye
 
 ## Proyectos
 
+### `learn-blockchain` — Solidity + Foundry
+Pool de apuestas on-chain para resultados de partidos de fútbol. Cubre Solidity (storage, payable, mappings, eventos, modifiers), el patrón Checks-Effects-Interactions para prevenir el reentrancy attack, OpenZeppelin (Ownable, ReentrancyGuard), y testing con fuzzing en Foundry.
+- Guía: `BLOCKCHAIN.md`
+
 ### `learn-nestjs` — NestJS + TypeScript
 API REST de scouting deportivo. Cubre el stack completo de NestJS: módulos, controllers, services, TypeORM, DTOs con validación, guards JWT, interceptors y exception filters.
 - Guía: `NESTJS.md`
